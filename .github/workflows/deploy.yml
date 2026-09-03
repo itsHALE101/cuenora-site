@@ -8,7 +8,7 @@ on:
       - .github/workflows/deploy.yml
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -20,6 +20,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout public deployment repo
+        uses: actions/checkout@v6
+
       - name: Fetch current Cuenora source snapshot
         run: |
           git clone --depth 1 https://github.com/itsHALE101/cuenora-beta.git src
@@ -27,24 +30,21 @@ jobs:
       - name: Build deployment allowlist
         run: |
           set -euo pipefail
+          rm -rf public
           mkdir -p public
 
-          # Only files required by the browser are allowed into the public deployment.
           for f in index.html privacy.html beta-test.html manifest.webmanifest icon.svg; do
             test -f "src/$f"
             cp "src/$f" "public/$f"
           done
 
-          # Minify CSS.
           npx --yes csso-cli@4.0.2 src/cuenora.css --output public/cuenora.css
 
-          # Minify/mangle browser JavaScript. The service worker keeps the same public filename.
           for f in cuenora-app.js smart-dump.js assist.js voice.js cloud-config.js privacy-crypto.js cloud.js sw.js; do
             test -f "src/$f"
             npx --yes terser@5.44.0 "src/$f" --compress --mangle --comments false --output "public/$f"
           done
 
-          # Minify HTML, including inline test-page code, while keeping behavior unchanged.
           for f in index.html privacy.html beta-test.html; do
             npx --yes html-minifier-terser@7.2.0 "public/$f" \
               --collapse-whitespace \
@@ -58,7 +58,6 @@ jobs:
             mv "public/$f.min" "public/$f"
           done
 
-          # Do not expose the private-development repository through the beta bug-report link.
           python - <<'PY'
           from pathlib import Path
           p = Path('public/beta-test.html')
@@ -68,20 +67,30 @@ jobs:
           p.write_text(s)
           PY
 
-          # Hard fail if internal-only material somehow enters the public artifact.
           forbidden='ADHD-PRODUCT-RESEARCH|DPIA-DRAFT|PRIVACY-SECURITY|MODEL-STACK|BUSINESS-MODEL|USER-INTERVIEWS|TESTER-STUDY|supabase/functions|service_role|SUPABASE_SERVICE_ROLE_KEY'
           if grep -R -nE "$forbidden" public; then
             echo 'Internal-only material detected in public artifact.'
             exit 1
           fi
 
-          echo 'Public deployment files:'
-          find public -maxdepth 1 -type f -printf '%f\n' | sort
+      - name: Freeze deployable artifact in public repository
+        run: |
+          set -euo pipefail
+          rm -rf site
+          mkdir -p site
+          cp -a public/. site/
+          git config user.name "Cuenora Deploy Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add site
+          if git diff --cached --quiet; then
+            echo "Frozen site artifact is already current."
+          else
+            git commit -m "Freeze protected public beta artifact"
+            git push origin HEAD:main
+          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
