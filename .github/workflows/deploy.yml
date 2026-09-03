@@ -47,9 +47,9 @@ jobs:
           actual=$(find site -maxdepth 1 -type f -printf '%f\n' | sort)
           test "$actual" = "$expected"
 
-          forbidden='ADHD-PRODUCT-RESEARCH|DPIA-DRAFT|PRIVACY-SECURITY|MODEL-STACK|BUSINESS-MODEL|USER-INTERVIEWS|TESTER-STUDY|supabase/functions|service_role|SUPABASE_SERVICE_ROLE_KEY|cuenora-beta'
+          forbidden='ADHD-PRODUCT-RESEARCH|DPIA-DRAFT|PRIVACY-SECURITY|MODEL-STACK|BUSINESS-MODEL|USER-INTERVIEWS|TESTER-STUDY|supabase/functions|service_role|SUPABASE_SERVICE_ROLE_KEY|github.com/itsHALE101/cuenora-beta|itshale101.github.io/cuenora-beta/'
           if grep -R -nE "$forbidden" site; then
-            echo 'Internal-only material detected in public artifact.'
+            echo 'Internal-only material or an old source-site link was detected in the public artifact.'
             exit 1
           fi
 
