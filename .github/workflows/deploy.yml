@@ -5,10 +5,11 @@ on:
   push:
     branches: [main]
     paths:
+      - site/**
       - .github/workflows/deploy.yml
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -17,92 +18,60 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout public deployment repo
+      - name: Checkout deployment artifact
         uses: actions/checkout@v6
 
-      - name: Fetch current Cuenora source snapshot
-        run: |
-          git clone --depth 1 https://github.com/itsHALE101/cuenora-beta.git src
-
-      - name: Build deployment allowlist
+      - name: Verify public artifact allowlist
         run: |
           set -euo pipefail
-          rm -rf public
-          mkdir -p public
+          test -d site
 
-          for f in index.html privacy.html beta-test.html manifest.webmanifest icon.svg; do
-            test -f "src/$f"
-            cp "src/$f" "public/$f"
-          done
+          expected=$(printf '%s\n' \
+            assist.js \
+            beta-test.html \
+            cloud-config.js \
+            cloud.js \
+            cuenora-app.js \
+            cuenora.css \
+            icon.svg \
+            index.html \
+            manifest.webmanifest \
+            privacy-crypto.js \
+            privacy.html \
+            smart-dump.js \
+            sw.js \
+            voice.js | sort)
+          actual=$(find site -maxdepth 1 -type f -printf '%f\n' | sort)
+          test "$actual" = "$expected"
 
-          npx --yes csso-cli@4.0.2 src/cuenora.css --output public/cuenora.css
-
-          for f in cuenora-app.js smart-dump.js assist.js voice.js cloud-config.js privacy-crypto.js cloud.js sw.js; do
-            test -f "src/$f"
-            npx --yes terser@5.44.0 "src/$f" --compress --mangle --comments false --output "public/$f"
-          done
-
-          for f in index.html privacy.html beta-test.html; do
-            npx --yes html-minifier-terser@7.2.0 "public/$f" \
-              --collapse-whitespace \
-              --remove-comments \
-              --remove-redundant-attributes \
-              --remove-script-type-attributes \
-              --remove-style-link-type-attributes \
-              --minify-css true \
-              --minify-js true \
-              --output "public/$f.min"
-            mv "public/$f.min" "public/$f"
-          done
-
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('public/beta-test.html')
-          s = p.read_text()
-          s = s.replace('https://github.com/itsHALE101/cuenora-beta/issues/new?template=beta-feedback.md', '#feedbackForm')
-          s = s.replace('Report a technical problem', 'Use the feedback form above')
-          p.write_text(s)
-          PY
-
-          forbidden='ADHD-PRODUCT-RESEARCH|DPIA-DRAFT|PRIVACY-SECURITY|MODEL-STACK|BUSINESS-MODEL|USER-INTERVIEWS|TESTER-STUDY|supabase/functions|service_role|SUPABASE_SERVICE_ROLE_KEY'
-          if grep -R -nE "$forbidden" public; then
+          forbidden='ADHD-PRODUCT-RESEARCH|DPIA-DRAFT|PRIVACY-SECURITY|MODEL-STACK|BUSINESS-MODEL|USER-INTERVIEWS|TESTER-STUDY|supabase/functions|service_role|SUPABASE_SERVICE_ROLE_KEY|cuenora-beta'
+          if grep -R -nE "$forbidden" site; then
             echo 'Internal-only material detected in public artifact.'
             exit 1
           fi
 
-      - name: Freeze deployable artifact in public repository
-        run: |
-          set -euo pipefail
-          rm -rf site
-          mkdir -p site
-          cp -a public/. site/
-          git config user.name "Cuenora Deploy Bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add site
-          if git diff --cached --quiet; then
-            echo "Frozen site artifact is already current."
-          else
-            git commit -m "Freeze protected public beta artifact"
-            git push origin HEAD:main
+          if find site -type f -name '*.map' | grep -q .; then
+            echo 'Source map detected in public artifact.'
+            exit 1
           fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload Pages artifact
+      - name: Upload verified Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: public
+          path: site
 
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: verify
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
