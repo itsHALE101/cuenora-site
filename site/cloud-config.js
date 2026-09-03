@@ -1,0 +1,1 @@
+window.CUENORA_CLOUD={backendUrl:"https://yybzgoconcipcydkcval.supabase.co/functions/v1/cuenora-api",vapidPublicKey:"BEiBubih5s6c-1p6z5rmaKrxvn9eQypmiCFJpOJ0QiF06_SsFhqVy7xnEnpLEmRx11c_VfFFxPgx9CPHAazzvgc"};

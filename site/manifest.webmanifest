@@ -1,0 +1,18 @@
+{
+  "name": "Cuenora",
+  "short_name": "Cuenora",
+  "description": "ADHD-friendly working-memory reminders, planning and reset support.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f7f6",
+  "theme_color": "#58736c",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
