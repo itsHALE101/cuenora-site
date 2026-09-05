@@ -41,6 +41,7 @@ jobs:
             manifest.webmanifest \
             privacy-crypto.js \
             privacy.html \
+            reminder-guard.js \
             smart-dump.js \
             sw.js \
             voice.js | sort)
