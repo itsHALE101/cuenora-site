@@ -32,6 +32,7 @@ jobs:
           expected=$(printf '%s\n' \
             assist.js \
             beta-test.html \
+            capture-dates.js \
             cloud-config.js \
             cloud.js \
             cuenora-app.js \
@@ -39,13 +40,16 @@ jobs:
             icon.svg \
             index.html \
             manifest.webmanifest \
+            planning-engine.js \
             privacy-crypto.js \
             privacy.html \
             reminder-guard.js \
             smart-dump.js \
             sw.js \
+            vendor/chrono-LICENSE.txt \
+            vendor/chrono-gb.mjs \
             voice.js | sort)
-          actual=$(find site -maxdepth 1 -type f -printf '%f\n' | sort)
+          actual=$(find site -type f -printf '%P\n' | sort)
           test "$actual" = "$expected"
 
           forbidden='ADHD-PRODUCT-RESEARCH|DPIA-DRAFT|PRIVACY-SECURITY|MODEL-STACK|BUSINESS-MODEL|USER-INTERVIEWS|TESTER-STUDY|supabase/functions|service_role|SUPABASE_SERVICE_ROLE_KEY|github.com/itsHALE101/cuenora-beta|itshale101.github.io/cuenora-beta/'
@@ -77,3 +81,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
