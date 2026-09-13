@@ -1,1 +1,183 @@
-(()=>{const I="cuenora-beta-v1",S="cuenora-cloud-v1",x="cuenora-cloud-device-v1",O="cuenora-reminder-outbox-v1",h=window.CUENORA_CLOUD||{},k=window.CuenoraPrivacy,l=document.getElementById("notifyBtn"),R=document.getElementById("cloudStatus"),y=document.getElementById("reminderNotice"),b=document.getElementById("deleteCloudBtn");let U=!1,D=null,N=!1,A=!1,s={connected:!1,...C(S,{})};function C(e,t){try{return JSON.parse(localStorage.getItem(e)||"null")||t}catch{return t}}function p(e,t){localStorage.setItem(e,JSON.stringify(t))}function J(e){let t="";for(const r of e)t+=String.fromCharCode(r);return btoa(t).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"")}function q(){let e=C(x,null);if(e?.id&&e?.secret)return e;const t=new Uint8Array(32);return crypto.getRandomValues(t),e={id:crypto.randomUUID?crypto.randomUUID():`c-${Date.now()}-${Math.random().toString(36).slice(2)}`,secret:J(t)},p(x,e),e}function W(e){const t="=".repeat((4-e.length%4)%4),r=atob((e+t).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from(r,i=>i.charCodeAt(0))}function B(){return/iphone|ipad|ipod/i.test(navigator.userAgent)}function L(){return matchMedia?.("(display-mode: standalone)").matches||navigator.standalone===!0}function f(e,t=!1){R&&(R.textContent=e,R.classList.toggle("bad",t),R.classList.toggle("good",!t)),l&&(l.textContent=s.connected?"Reliable reminders on":B()&&!L()?"Install for reminders":"Enable reminders")}async function w(e,t={}){if(!h.backendUrl)throw new Error("Cloud backend is not configured.");const r=q(),i=new AbortController,c=setTimeout(()=>i.abort(),15e3);try{const d=await fetch(h.backendUrl,{method:"POST",signal:i.signal,headers:{"content-type":"application/json"},body:JSON.stringify({action:e,device_id:r.id,device_secret:r.secret,...t})}),o=await d.json();if(!d.ok||o?.ok===!1)throw new Error(o?.error||`Backend returned ${d.status}`);if(e==="get-reminders"?!Array.isArray(o?.reminders):o?.ok!==!0)throw new Error("The reminder service returned an incomplete response.");return o}catch(d){throw d.name==="AbortError"?new Error("The reminder service took too long. Please try again."):d}finally{clearTimeout(c)}}async function z(){if(!("serviceWorker"in navigator))throw new Error("This browser cannot run background reminders.");return navigator.serviceWorker.register("./sw.js",{scope:"./"})}function E(){const e=C(I,{tasks:[],reminders:[],settings:{}});return e.reminders=e.reminders||[],e}function P(e){return JSON.stringify({title:e.title||"",when:e.when||"",anchor:e.anchor||e.when||"",repeat:e.repeat||"none",persistence:e.persistence||"once",repeatInterval:Number(e.repeatInterval||10),maxRepeats:Number(e.maxRepeats||6),status:e.status==="done"?"done":"active"})}function v(){return new Map(E().reminders.filter(e=>e?.id).map(e=>[e.id,P(e)]))}let T=v();function g(){const e=C(O,{});return{upserts:e?.upserts&&typeof e.upserts=="object"?e.upserts:{},deletes:e?.deletes&&typeof e.deletes=="object"?e.deletes:{}}}function _(e){Object.keys(e.upserts).length||Object.keys(e.deletes).length?p(O,e):localStorage.removeItem(O)}function F(){const e=g();return new Set([...Object.keys(e.upserts),...Object.keys(e.deletes)])}function K(){return`${Date.now()}-${Math.random().toString(36).slice(2)}`}function V(){if(A)return;const e=v(),t=g();for(const[r,i]of e)T.get(r)!==i&&(t.upserts[r]=i,delete t.deletes[r]);for(const r of T.keys())e.has(r)||(t.deletes[r]=K(),delete t.upserts[r]);T=e,_(t)}function H(){const e=g();for(const[t,r]of v())e.deletes[t]||(e.upserts[t]=r);_(e)}async function X(e){return k?.encryptText?k.encryptText(e||"Reminder"):"Private reminder"}async function Z(e){return k?.isEncrypted?.(e)?await k.decryptText(e)||"Private reminder":e||"Reminder"}async function G(e){const t=new Date(e.when);return{client_id:e.id,title:await X(e.title||"Reminder"),remind_at:t.toISOString(),occurrence_anchor:new Date(e.anchor||e.when).toISOString(),recurrence:["daily","weekdays","weekly"].includes(e.repeat)?e.repeat:"none",persistence:e.persistence==="repeat"?"repeat":"once",repeat_interval_min:Number(e.repeatInterval||10),max_repeats:Number(e.maxRepeats||6),status:e.status==="done"?"done":"active",timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC"}}async function M(e=!1){if(!s.connected||U){if(e)throw new Error("Reminders are still syncing. Please try again.");return}U=!0;let t=!1;try{const r=g(),i=E(),c=new Map(i.reminders.map(o=>[o.id,o]));for(const[o,n]of Object.entries(r.deletes)){await w("delete-reminder",{client_id:o});const u=g();u.deletes[o]===n&&(delete u.deletes[o],_(u))}const d=Object.entries(r.upserts).map(([o,n])=>({row:c.get(o),id:o,fingerprint:n})).filter(o=>o.row?.when);if(d.length){const o=await Promise.all(d.map(u=>G(u.row)));await w("sync-reminders",{reminders:o});const n=g();for(const u of d)n.upserts[u.id]===u.fingerprint&&delete n.upserts[u.id];_(n)}s.lastSync=new Date().toISOString(),s.privateReminderText=!0,s.outboxReady=!0,p(S,s),t=!0}catch(r){if(e)throw r;f("Reminder sync failed. Reconnect to try again.",!0),l&&(l.textContent="Reconnect reminders"),console.warn("Cuenora cloud sync failed",r)}finally{U=!1,t&&F().size&&(clearTimeout(D),D=setTimeout(M,0))}}async function Y(e=!1){if(s.connected)try{const t=v(),r=await w("get-reminders"),i=await Promise.all(r.reminders.map(async n=>({row:n,title:await Z(n.title)}))),c=E(),d=new Map(c.reminders.map(n=>[n.id,n])),o=F();for(const{row:n,title:u}of i){if(!n.client_id||!n.remind_at||!Number.isFinite(new Date(n.remind_at).getTime())||o.has(n.client_id))continue;let a=d.get(n.client_id);const j=t.get(n.client_id);if(j!==void 0&&(!a||P(a)!==j)){const m=g();a?(m.upserts[n.client_id]=P(a),delete m.deletes[n.client_id]):(m.deletes[n.client_id]=K(),delete m.upserts[n.client_id]),_(m),o.add(n.client_id);continue}if(j===void 0&&a){const m=g();m.upserts[n.client_id]=P(a),delete m.deletes[n.client_id],_(m),o.add(n.client_id);continue}a?(u&&u!=="Private reminder"&&(a.title=u),a.repeat=n.recurrence||a.repeat||"none",n.status==="done"&&(a.status="done"),new Date(n.remind_at).getTime()!==new Date(a.when).getTime()&&(a.when=n.remind_at,a.anchor=n.occurrence_anchor||n.remind_at,a.lastFired=null),n.status==="waiting"&&n.last_sent_at&&(a.lastFired=n.last_sent_at)):(a={id:n.client_id,title:u,when:n.remind_at,anchor:n.occurrence_anchor||n.remind_at,repeat:n.recurrence||"none",status:n.status==="done"?"done":"active",lastFired:n.last_sent_at||null},c.reminders.push(a),d.set(a.id,a))}A=!0;try{p(I,c),window.CuenoraBeta?.setState(c),T=v()}finally{A=!1}}catch(t){if(e)throw t;console.warn("Cuenora cloud reconcile failed",t)}}function Q(e){s.connected=!1;try{p(S,s)}catch{}f(`Reminders need reconnecting: ${e.message}`,!0),l&&(l.textContent="Reconnect reminders"),y&&(y.textContent="The reminder connection could not be confirmed. Your saved reminders are still here. Reconnect to try again.")}async function $(e){if(!N){N=!0,l&&(l.disabled=!0),b&&(b.disabled=!0);try{if(!h.backendUrl||!h.vapidPublicKey)throw new Error("Cloud reminder configuration is missing.");if(B()&&!L())throw new Error("Add Cuenora to the Home Screen, open it from the icon, then enable reminders.");if(!("Notification"in window))throw new Error("Notifications are not supported by this browser.");let t=Notification.permission;if(t==="default"&&e&&(t=await Notification.requestPermission()),t!=="granted")throw new Error(t==="denied"?"Notifications are blocked. Allow Cuenora notifications in your device or browser settings, then reconnect.":"Tap Enable reminders and allow notifications to connect.");f("Checking reminder connection\u2026"),l&&(l.textContent="Connecting\u2026");const r=await z();if(!r.pushManager)throw new Error("Background notifications are not supported by this browser.");let i=await r.pushManager.getSubscription();if(i?.expirationTime!=null&&i.expirationTime<=Date.now()){if(!e)throw new Error("Your notification subscription expired. Tap Reconnect reminders.");if(!await i.unsubscribe())throw new Error("The expired subscription could not be replaced. Please try again.");i=null}if(!i){if(!e)throw new Error("Your notification subscription is missing. Tap Reconnect reminders.");i=await r.pushManager.subscribe({userVisibleOnly:!0,applicationServerKey:W(h.vapidPublicKey)})}await w("register-device"),await w("subscribe",{subscription:i.toJSON()}),s.connected=!0,s.outboxReady||H(),await Y(!0),await M(!0),s.connectedAt=new Date().toISOString(),p(S,s),f("Reminders connected \xB7 private text encrypted"),y&&(y.textContent="The reminder service has confirmed this device and its saved reminders. Reminder text is encrypted before cloud sync. Check delivery with a harmless test reminder.")}catch(t){Q(t)}finally{N=!1,l&&(l.disabled=!1),b&&(b.disabled=!1)}}}function ee(){return $(!0)}function te(){return $(!1)}async function ne(){if(!N){if(!s.connected&&!C(x,null)){f("No connected cloud reminder data on this device.");return}if(confirm("Delete this device\u2019s cloud reminder data? Local tasks, Brain Dump, memories and reminders will stay on this device."))try{f("Deleting cloud reminder data\u2026"),await w("delete-device-data");try{const e=await navigator.serviceWorker?.ready,t=await e?.pushManager?.getSubscription();t&&await t.unsubscribe()}catch{}s={connected:!1},localStorage.removeItem(S),localStorage.removeItem(x),localStorage.removeItem(O),T=v(),await k?.deleteLocalKey?.(),f("Cloud reminder data deleted. Local Cuenora data is still on this device."),y&&(y.textContent="Cloud reminder data for this device has been deleted. You can reconnect reliable reminders at any time.")}catch(e){f(`Could not delete cloud data: ${e.message}`,!0)}}}async function re(){const e=new URL(location.href),t=e.searchParams.get("pn_action"),r=e.searchParams.get("pn_reminder");if(!(!t||!r))try{const i=E(),c=i.reminders.find(d=>d.id===r);t==="snooze"?(await w("snooze-reminder",{client_id:r,minutes:5}),c&&(c.when=new Date(Date.now()+5*6e4).toISOString(),c.status="active",c.lastFired=null)):t==="done"&&(await w("ack-reminder",{client_id:r}),c&&c.repeat==="none"&&(c.status="done")),p(I,i),window.CuenoraBeta?.setState(i),c?.repeat!=="none"&&await Y()}catch(i){console.warn("Notification action failed",i)}finally{e.searchParams.delete("pn_action"),e.searchParams.delete("pn_reminder"),e.searchParams.delete("pn_anchor"),history.replaceState({},"",e.pathname+e.search+e.hash)}}l&&(l.onclick=ee),b&&(b.onclick=ne),window.addEventListener("cuenora-state-saved",()=>{V(),s.connected&&(clearTimeout(D),D=setTimeout(M,450))}),"serviceWorker"in navigator&&navigator.serviceWorker.addEventListener("message",e=>{if(e.data?.type!=="cuenora-push-visible")return;const t=E(),r=t.reminders.find(i=>i.id===e.data.clientReminderId);r&&(r.lastFired=new Date().toISOString(),p(I,t),window.CuenoraBeta?.setState(t))}),(async()=>{if(!h.backendUrl){f("Local reminders only.");return}s.connected?await te():f(B()&&!L()?"Install for reminders":"Enable reminders"),await re()})()})();
+(()=>{
+  const STATE_KEY='cuenora-beta-v1';
+  const CLOUD_KEY='cuenora-cloud-v1';
+  const DEVICE_KEY='cuenora-cloud-device-v1';
+  const OUTBOX_KEY='cuenora-reminder-outbox-v1';
+  const config=window.CUENORA_CLOUD||{};
+  const privacy=window.CuenoraPrivacy;
+  const button=document.getElementById('notifyBtn');
+  const statusEl=document.getElementById('cloudStatus');
+  const noticeEl=document.getElementById('reminderNotice');
+  const deleteButton=document.getElementById('deleteCloudBtn');
+  let syncing=false,debounceTimer=null,connecting=false,suppressTracking=false;
+  let cloud={connected:false,...readJson(CLOUD_KEY,{})};
+  function readJson(key,fallback){try{return JSON.parse(localStorage.getItem(key)||'null')||fallback}catch{return fallback}}
+  function writeJson(key,value){localStorage.setItem(key,JSON.stringify(value))}
+  function b64url(bytes){let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/g,'')}
+  function getDevice(){let d=readJson(DEVICE_KEY,null);if(d?.id&&d?.secret)return d;const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);d={id:crypto.randomUUID?crypto.randomUUID():`c-${Date.now()}-${Math.random().toString(36).slice(2)}`,secret:b64url(bytes)};writeJson(DEVICE_KEY,d);return d}
+  function keyBytes(s){const p='='.repeat((4-s.length%4)%4),raw=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(raw,c=>c.charCodeAt(0))}
+  function isIOS(){return /iphone|ipad|ipod/i.test(navigator.userAgent)}
+  function standalone(){return matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true}
+  function setStatus(text,bad=false){if(statusEl){statusEl.textContent=text;statusEl.classList.toggle('bad',bad);statusEl.classList.toggle('good',!bad)}if(button){button.textContent=cloud.connected?'Reliable reminders on':(isIOS()&&!standalone()?'Install for reminders':'Enable reminders')}}
+  async function api(action,payload={}){
+    if(!config.backendUrl)throw new Error('Cloud backend is not configured.');
+    const d=getDevice(),controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),15000);
+    try{
+      const res=await fetch(config.backendUrl,{method:'POST',signal:controller.signal,headers:{'content-type':'application/json'},body:JSON.stringify({action,device_id:d.id,device_secret:d.secret,...payload})});
+      const body=await res.json();
+      if(!res.ok||body?.ok===false)throw new Error(body?.error||`Backend returned ${res.status}`);
+      if(action==='get-reminders'?!Array.isArray(body?.reminders):body?.ok!==true)throw new Error('The reminder service returned an incomplete response.');
+      return body;
+    }catch(e){if(e.name==='AbortError')throw new Error('The reminder service took too long. Please try again.');throw e}
+    finally{clearTimeout(timeout)}
+  }
+  async function registerSW(){if(!('serviceWorker'in navigator))throw new Error('This browser cannot run background reminders.');return navigator.serviceWorker.register('./sw.js',{scope:'./'})}
+  function localState(){const s=readJson(STATE_KEY,{tasks:[],reminders:[],settings:{}});s.reminders=s.reminders||[];return s}
+  function syncFingerprint(r){return JSON.stringify({title:r.title||'',when:r.when||'',anchor:r.anchor||r.when||'',repeat:r.repeat||'none',persistence:r.persistence||'once',repeatInterval:Number(r.repeatInterval||10),maxRepeats:Number(r.maxRepeats||6),status:r.status==='done'?'done':'active'})}
+  function reminderMap(){return new Map(localState().reminders.filter(r=>r?.id).map(r=>[r.id,syncFingerprint(r)]))}
+  let trackedReminders=reminderMap();
+  function readOutbox(){const q=readJson(OUTBOX_KEY,{});return{upserts:q?.upserts&&typeof q.upserts==='object'?q.upserts:{},deletes:q?.deletes&&typeof q.deletes==='object'?q.deletes:{}}}
+  function writeOutbox(q){if(Object.keys(q.upserts).length||Object.keys(q.deletes).length)writeJson(OUTBOX_KEY,q);else localStorage.removeItem(OUTBOX_KEY)}
+  function pendingIds(){const q=readOutbox();return new Set([...Object.keys(q.upserts),...Object.keys(q.deletes)])}
+  function deletionToken(){return `${Date.now()}-${Math.random().toString(36).slice(2)}`}
+  function trackLocalMutations(){
+    if(suppressTracking)return;
+    const current=reminderMap(),q=readOutbox();
+    for(const [id,fingerprint] of current){
+      if(trackedReminders.get(id)!==fingerprint){q.upserts[id]=fingerprint;delete q.deletes[id]}
+    }
+    for(const id of trackedReminders.keys()){
+      if(!current.has(id)){q.deletes[id]=deletionToken();delete q.upserts[id]}
+    }
+    trackedReminders=current;writeOutbox(q)
+  }
+  function primeOutbox(){
+    const q=readOutbox();
+    for(const [id,fingerprint] of reminderMap())if(!q.deletes[id])q.upserts[id]=fingerprint;
+    writeOutbox(q)
+  }
+  async function privateTitle(title){if(privacy?.encryptText)return privacy.encryptText(title||'Reminder');return'Private reminder'}
+  async function readableTitle(title){if(!privacy?.isEncrypted?.(title))return title||'Reminder';return await privacy.decryptText(title)||'Private reminder'}
+  async function cloudReminder(r){const when=new Date(r.when);return{client_id:r.id,title:await privateTitle(r.title||'Reminder'),remind_at:when.toISOString(),occurrence_anchor:new Date(r.anchor||r.when).toISOString(),recurrence:['daily','weekdays','weekly'].includes(r.repeat)?r.repeat:'none',persistence:r.persistence==='repeat'?'repeat':'once',repeat_interval_min:Number(r.repeatInterval||10),max_repeats:Number(r.maxRepeats||6),status:r.status==='done'?'done':'active',timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'}}
+  async function syncAll(strict=false){
+    if(!cloud.connected||syncing){if(strict)throw new Error('Reminders are still syncing. Please try again.');return}
+    syncing=true;let succeeded=false;
+    try{
+      const q=readOutbox(),state=localState(),byId=new Map(state.reminders.map(r=>[r.id,r]));
+      for(const [id,token] of Object.entries(q.deletes)){
+        await api('delete-reminder',{client_id:id});
+        const latest=readOutbox();if(latest.deletes[id]===token){delete latest.deletes[id];writeOutbox(latest)}
+      }
+      const selected=Object.entries(q.upserts).map(([id,fingerprint])=>({row:byId.get(id),id,fingerprint})).filter(x=>x.row?.when);
+      if(selected.length){
+        const rows=await Promise.all(selected.map(x=>cloudReminder(x.row)));
+        await api('sync-reminders',{reminders:rows});
+        const latest=readOutbox();
+        for(const x of selected)if(latest.upserts[x.id]===x.fingerprint)delete latest.upserts[x.id];
+        writeOutbox(latest)
+      }
+      cloud.lastSync=new Date().toISOString();cloud.privateReminderText=true;cloud.outboxReady=true;writeJson(CLOUD_KEY,cloud);succeeded=true
+    }catch(e){
+      if(strict)throw e;
+      setStatus('Reminder sync failed. Reconnect to try again.',true);if(button)button.textContent='Reconnect reminders';
+      console.warn('Cuenora cloud sync failed',e)
+    }finally{syncing=false;if(succeeded&&pendingIds().size){clearTimeout(debounceTimer);debounceTimer=setTimeout(syncAll,0)}}
+  }
+  async function reconcile(strict=false){
+    if(!cloud.connected)return;
+    try{
+      // Snapshot only the rows we may merge, before any asynchronous work.
+      const before=reminderMap();
+      const remote=await api('get-reminders');
+      const decoded=await Promise.all(remote.reminders.map(async rr=>({row:rr,title:await readableTitle(rr.title)})));
+      // Capture, settings, and edits may have changed while fetching/decrypting.
+      // Read them again, then finish this merge without another await.
+      const s=localState(),byId=new Map(s.reminders.map(r=>[r.id,r])),pending=pendingIds();
+      for(const {row:rr,title} of decoded){
+        if(!rr.client_id||!rr.remind_at||!Number.isFinite(new Date(rr.remind_at).getTime()))continue;
+        if(pending.has(rr.client_id))continue;
+        let r=byId.get(rr.client_id);
+        const previous=before.get(rr.client_id);
+        if(previous!==undefined&&(!r||syncFingerprint(r)!==previous)){
+          const q=readOutbox();
+          if(r){q.upserts[rr.client_id]=syncFingerprint(r);delete q.deletes[rr.client_id]}
+          else{q.deletes[rr.client_id]=deletionToken();delete q.upserts[rr.client_id]}
+          writeOutbox(q);pending.add(rr.client_id);continue
+        }
+        if(previous===undefined&&r){const q=readOutbox();q.upserts[rr.client_id]=syncFingerprint(r);delete q.deletes[rr.client_id];writeOutbox(q);pending.add(rr.client_id);continue}
+        if(!r){
+          r={id:rr.client_id,title,when:rr.remind_at,anchor:rr.occurrence_anchor||rr.remind_at,repeat:rr.recurrence||'none',status:rr.status==='done'?'done':'active',lastFired:rr.last_sent_at||null};
+          s.reminders.push(r);byId.set(r.id,r);
+        }else{
+          if(title&&title!=='Private reminder')r.title=title;
+          r.repeat=rr.recurrence||r.repeat||'none';
+          if(rr.status==='done')r.status='done';
+          if(new Date(rr.remind_at).getTime()!==new Date(r.when).getTime()){
+            r.when=rr.remind_at;r.anchor=rr.occurrence_anchor||rr.remind_at;r.lastFired=null;
+          }
+          if(rr.status==='waiting'&&rr.last_sent_at)r.lastFired=rr.last_sent_at;
+        }
+      }
+      suppressTracking=true;
+      try{writeJson(STATE_KEY,s);window.CuenoraBeta?.setState(s);trackedReminders=reminderMap()}
+      finally{suppressTracking=false}
+    }catch(e){if(strict)throw e;console.warn('Cuenora cloud reconcile failed',e)}
+  }
+  function connectionFailed(error){
+    cloud.connected=false;
+    try{writeJson(CLOUD_KEY,cloud)}catch{}
+    setStatus(`Reminders need reconnecting: ${error.message}`,true);
+    if(button)button.textContent='Reconnect reminders';
+    if(noticeEl)noticeEl.textContent='The reminder connection could not be confirmed. Your saved reminders are still here. Reconnect to try again.';
+  }
+  async function connect(interactive){
+    if(connecting)return;
+    connecting=true;
+    if(button)button.disabled=true;
+    if(deleteButton)deleteButton.disabled=true;
+    try{
+      if(!config.backendUrl||!config.vapidPublicKey)throw new Error('Cloud reminder configuration is missing.');
+      if(isIOS()&&!standalone())throw new Error('Add Cuenora to the Home Screen, open it from the icon, then enable reminders.');
+      if(!('Notification'in window))throw new Error('Notifications are not supported by this browser.');
+      // Request permission directly from the click, before other asynchronous work.
+      let permission=Notification.permission;
+      if(permission==='default'&&interactive)permission=await Notification.requestPermission();
+      if(permission!=='granted')throw new Error(permission==='denied'?'Notifications are blocked. Allow Cuenora notifications in your device or browser settings, then reconnect.':'Tap Enable reminders and allow notifications to connect.');
+      setStatus('Checking reminder connection…');
+      if(button)button.textContent='Connecting…';
+      const reg=await registerSW();
+      if(!reg.pushManager)throw new Error('Background notifications are not supported by this browser.');
+      let sub=await reg.pushManager.getSubscription();
+      if(sub?.expirationTime!=null&&sub.expirationTime<=Date.now()){
+        if(!interactive)throw new Error('Your notification subscription expired. Tap Reconnect reminders.');
+        if(!await sub.unsubscribe())throw new Error('The expired subscription could not be replaced. Please try again.');
+        sub=null;
+      }
+      if(!sub){
+        if(!interactive)throw new Error('Your notification subscription is missing. Tap Reconnect reminders.');
+        sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyBytes(config.vapidPublicKey)});
+      }
+      await api('register-device');
+      await api('subscribe',{subscription:sub.toJSON()});
+      cloud.connected=true;
+      if(!cloud.outboxReady)primeOutbox();
+      await reconcile(true);
+      await syncAll(true);
+      cloud.connectedAt=new Date().toISOString();
+      writeJson(CLOUD_KEY,cloud);
+      setStatus('Reminders connected · private text encrypted');
+      if(noticeEl)noticeEl.textContent='The reminder service has confirmed this device and its saved reminders. Reminder text is encrypted before cloud sync. Check delivery with a harmless test reminder.';
+    }catch(e){connectionFailed(e)}
+    finally{connecting=false;if(button)button.disabled=false;if(deleteButton)deleteButton.disabled=false}
+  }
+  function enable(){return connect(true)}
+  function verify(){return connect(false)}
+  async function deleteCloudData(){if(connecting)return;if(!cloud.connected&&!readJson(DEVICE_KEY,null)){setStatus('No connected cloud reminder data on this device.');return}if(!confirm('Delete this device’s cloud reminder data? Local tasks, Brain Dump, memories and reminders will stay on this device.'))return;try{setStatus('Deleting cloud reminder data…');await api('delete-device-data');try{const reg=await navigator.serviceWorker?.ready,sub=await reg?.pushManager?.getSubscription();if(sub)await sub.unsubscribe()}catch{}cloud={connected:false};localStorage.removeItem(CLOUD_KEY);localStorage.removeItem(DEVICE_KEY);localStorage.removeItem(OUTBOX_KEY);trackedReminders=reminderMap();await privacy?.deleteLocalKey?.();setStatus('Cloud reminder data deleted. Local Cuenora data is still on this device.');if(noticeEl)noticeEl.textContent='Cloud reminder data for this device has been deleted. You can reconnect reliable reminders at any time.'}catch(e){setStatus(`Could not delete cloud data: ${e.message}`,true)}}
+  async function handleNotificationAction(){const u=new URL(location.href),action=u.searchParams.get('pn_action'),rid=u.searchParams.get('pn_reminder');if(!action||!rid)return;try{const s=localState(),r=s.reminders.find(x=>x.id===rid);if(action==='snooze'){await api('snooze-reminder',{client_id:rid,minutes:5});if(r){r.when=new Date(Date.now()+5*60000).toISOString();r.status='active';r.lastFired=null}}else if(action==='done'){await api('ack-reminder',{client_id:rid});if(r&&r.repeat==='none')r.status='done'}writeJson(STATE_KEY,s);window.CuenoraBeta?.setState(s);if(r?.repeat!=='none')await reconcile()}catch(e){console.warn('Notification action failed',e)}finally{u.searchParams.delete('pn_action');u.searchParams.delete('pn_reminder');u.searchParams.delete('pn_anchor');history.replaceState({},'',u.pathname+u.search+u.hash)}}
+  if(button)button.onclick=enable;
+  if(deleteButton)deleteButton.onclick=deleteCloudData;
+  window.addEventListener('cuenora-state-saved',()=>{trackLocalMutations();if(!cloud.connected)return;clearTimeout(debounceTimer);debounceTimer=setTimeout(syncAll,450)});
+  if('serviceWorker'in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data?.type!=='cuenora-push-visible')return;const s=localState(),r=s.reminders.find(x=>x.id===e.data.clientReminderId);if(r){r.lastFired=new Date().toISOString();writeJson(STATE_KEY,s);window.CuenoraBeta?.setState(s)}});
+  (async()=>{if(!config.backendUrl){setStatus('Local reminders only.');return}if(cloud.connected)await verify();else setStatus(isIOS()&&!standalone()?'Install for reminders':'Enable reminders');await handleNotificationAction()})();
+})();

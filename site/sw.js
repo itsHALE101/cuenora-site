@@ -1,1 +1,36 @@
-const CUENORA_PRIVATE_DB="cuenora-private-v1",CUENORA_PRIVATE_STORE="keys",CUENORA_PRIVATE_KEY="reminder-content",CUENORA_PRIVATE_PREFIX="enc:v1:",CUENORA_PRIVATE_AAD=new TextEncoder().encode("cuenora-reminder-title-v1");function cuenoraFrom64(t){const e="=".repeat((4-t.length%4)%4),n=atob((t+e).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from(n,r=>r.charCodeAt(0))}function cuenoraOpenPrivateDb(){return new Promise((t,e)=>{const n=indexedDB.open(CUENORA_PRIVATE_DB,1);n.onupgradeneeded=()=>{n.result.objectStoreNames.contains(CUENORA_PRIVATE_STORE)||n.result.createObjectStore(CUENORA_PRIVATE_STORE,{keyPath:"id"})},n.onsuccess=()=>t(n.result),n.onerror=()=>e(n.error)})}async function cuenoraPrivateKey(){const t=await cuenoraOpenPrivateDb();try{const e=await new Promise((n,r)=>{const i=t.transaction(CUENORA_PRIVATE_STORE,"readonly"),o=i.objectStore(CUENORA_PRIVATE_STORE).get(CUENORA_PRIVATE_KEY);o.onsuccess=()=>n(o.result?.raw||null),o.onerror=()=>r(o.error)});return e?crypto.subtle.importKey("raw",new Uint8Array(e),{name:"AES-GCM"},!1,["decrypt"]):null}finally{t.close()}}async function cuenoraPrivateBody(t){if(typeof t!="string"||!t.startsWith(CUENORA_PRIVATE_PREFIX))return t||"";try{const e=t.slice(CUENORA_PRIVATE_PREFIX.length).split(":");if(e.length!==2)return null;const n=await cuenoraPrivateKey();if(!n)return null;const r=await crypto.subtle.decrypt({name:"AES-GCM",iv:cuenoraFrom64(e[0]),additionalData:CUENORA_PRIVATE_AAD},n,cuenoraFrom64(e[1]));return new TextDecoder().decode(r)}catch{return null}}self.addEventListener("install",t=>t.waitUntil(self.skipWaiting())),self.addEventListener("activate",t=>t.waitUntil(self.clients.claim())),self.addEventListener("push",t=>{t.waitUntil((async()=>{let e={};try{e=t.data?t.data.json():{}}catch{e={body:t.data?t.data.text():""}}const n=e.clientReminderId||e.reminderId||"",r=e.occurrenceAnchor||"",i=e.body||e.title||"",c=await cuenoraPrivateBody(i)||(typeof i=="string"&&i.startsWith(CUENORA_PRIVATE_PREFIX)?"Private reminder \u2014 open Cuenora to view.":"You asked Cuenora not to let you forget this."),s=await clients.matchAll({type:"window",includeUncontrolled:!0});if(s.some(a=>a.visibilityState==="visible")){for(const a of s)a.postMessage({type:"cuenora-push-visible",clientReminderId:n,occurrenceAnchor:r,body:c});return}await self.registration.showNotification(e.notificationTitle||"Cuenora",{body:c,tag:n||`cuenora-${Date.now()}`,renotify:!0,requireInteraction:!!e.requireInteraction,data:{clientReminderId:n,occurrenceAnchor:r},actions:n?[{action:"done",title:"Done"},{action:"snooze",title:"Snooze 5m"}]:[]})})())}),self.addEventListener("notificationclick",t=>{t.notification.close();const e=t.notification.data?.clientReminderId||"",n=t.notification.data?.occurrenceAnchor||"",r=new URL("./",self.registration.scope);e&&(t.action==="done"||t.action==="snooze")&&(r.searchParams.set("pn_action",t.action),r.searchParams.set("pn_reminder",e),n&&r.searchParams.set("pn_anchor",n)),t.waitUntil((async()=>{const i=await clients.matchAll({type:"window",includeUncontrolled:!0});for(const o of i)if("focus"in o)return await o.navigate(r.href),o.focus();return clients.openWindow(r.href)})())});
+const CUENORA_PRIVATE_DB='cuenora-private-v1',CUENORA_PRIVATE_STORE='keys',CUENORA_PRIVATE_KEY='reminder-content',CUENORA_PRIVATE_PREFIX='enc:v1:',CUENORA_PRIVATE_AAD=new TextEncoder().encode('cuenora-reminder-title-v1');
+function cuenoraFrom64(s){const p='='.repeat((4-s.length%4)%4),raw=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(raw,c=>c.charCodeAt(0))}
+function cuenoraOpenPrivateDb(){return new Promise((resolve,reject)=>{const r=indexedDB.open(CUENORA_PRIVATE_DB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(CUENORA_PRIVATE_STORE))r.result.createObjectStore(CUENORA_PRIVATE_STORE,{keyPath:'id'})};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+async function cuenoraPrivateKey(){const db=await cuenoraOpenPrivateDb();try{const raw=await new Promise((resolve,reject)=>{const tx=db.transaction(CUENORA_PRIVATE_STORE,'readonly'),r=tx.objectStore(CUENORA_PRIVATE_STORE).get(CUENORA_PRIVATE_KEY);r.onsuccess=()=>resolve(r.result?.raw||null);r.onerror=()=>reject(r.error)});if(!raw)return null;return crypto.subtle.importKey('raw',new Uint8Array(raw),{name:'AES-GCM'},false,['decrypt'])}finally{db.close()}}
+async function cuenoraPrivateBody(value){if(typeof value!=='string'||!value.startsWith(CUENORA_PRIVATE_PREFIX))return value||'';try{const parts=value.slice(CUENORA_PRIVATE_PREFIX.length).split(':');if(parts.length!==2)return null;const key=await cuenoraPrivateKey();if(!key)return null;const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:cuenoraFrom64(parts[0]),additionalData:CUENORA_PRIVATE_AAD},key,cuenoraFrom64(parts[1]));return new TextDecoder().decode(plain)}catch{return null}}
+self.addEventListener('install',event=>event.waitUntil(self.skipWaiting()));
+self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));
+self.addEventListener('push',event=>{
+  event.waitUntil((async()=>{
+    let data={};try{data=event.data?event.data.json():{}}catch{data={body:event.data?event.data.text():''}}
+    const reminderId=data.clientReminderId||data.reminderId||'';
+    const occurrenceAnchor=data.occurrenceAnchor||'';
+    const rawBody=data.body||data.title||'';
+    const decrypted=await cuenoraPrivateBody(rawBody);
+    const body=decrypted||((typeof rawBody==='string'&&rawBody.startsWith(CUENORA_PRIVATE_PREFIX))?'Private reminder — open Cuenora to view.':'You asked Cuenora not to let you forget this.');
+    const windows=await clients.matchAll({type:'window',includeUncontrolled:true});
+    const visible=windows.some(c=>c.visibilityState==='visible');
+    if(visible){for(const c of windows)c.postMessage({type:'cuenora-push-visible',clientReminderId:reminderId,occurrenceAnchor,body});return}
+    await self.registration.showNotification(data.notificationTitle||'Cuenora',{
+      body,
+      tag:reminderId||`cuenora-${Date.now()}`,
+      renotify:true,
+      requireInteraction:!!data.requireInteraction,
+      data:{clientReminderId:reminderId,occurrenceAnchor},
+      actions:reminderId?[{action:'done',title:'Done'},{action:'snooze',title:'Snooze 5m'}]:[]
+    });
+  })())
+});
+self.addEventListener('notificationclick',event=>{
+  event.notification.close();
+  const reminderId=event.notification.data?.clientReminderId||'';
+  const occurrenceAnchor=event.notification.data?.occurrenceAnchor||'';
+  const target=new URL('./',self.registration.scope);
+  if(reminderId&&(event.action==='done'||event.action==='snooze')){target.searchParams.set('pn_action',event.action);target.searchParams.set('pn_reminder',reminderId);if(occurrenceAnchor)target.searchParams.set('pn_anchor',occurrenceAnchor)}
+  event.waitUntil((async()=>{const windows=await clients.matchAll({type:'window',includeUncontrolled:true});for(const c of windows){if('focus'in c){await c.navigate(target.href);return c.focus()}}return clients.openWindow(target.href)})())
+});

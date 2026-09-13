@@ -10,7 +10,7 @@
   <title>Cuenora — working-memory support</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./cuenora.css?v=20260910-1">
+  <link rel="stylesheet" href="./cuenora.css">
 </head>
 <body>
 <header class="top"><div class="wrap"><div class="head"><div class="brand"><span class="mark">C</span><span>Cuenora</span></div><button class="btn" id="notifyBtn">Enable reminders</button></div><div class="nav" id="nav"><button class="btn active" data-v="now">Now</button><button class="btn" data-v="dump">Brain Dump</button><button class="btn" data-v="memory">Memory</button><button class="btn" data-v="plan">Plan</button><button class="btn" data-v="remind">Remind</button><button class="btn" data-v="reset">Reset</button><button class="btn" data-v="settings">Settings</button></div></div></header>
@@ -33,15 +33,15 @@
 
   <section id="settings" class="view"><div class="hero"><div class="eyebrow">SENSORY PROFILE</div><h2>Make Cuenora easier to be around.</h2></div><div class="card"><div class="field"><label>Theme</label><select id="theme"><option value="calm">Calm</option><option value="focus">Focus</option><option value="energy">Energy</option><option value="mono">Mono</option><option value="night">Night</option></select></div><div class="field"><label>Text size</label><select id="textSize"><option value="16">Standard</option><option value="18">Large</option><option value="20">Extra large</option></select></div><div class="field"><label><input id="motion" type="checkbox" style="width:auto"> Reduce motion</label></div></div><div class="card"><h2 style="font-size:1.1rem">Cuenora rules</h2><p class="muted tiny">No streak punishment. No overdue shame. No requirement to perfectly maintain a planner. The goal is simple: move from stuck to started.</p></div><div class="card"><h2 style="font-size:1.1rem">Reliable reminders</h2><div id="cloudStatus" class="notice good tiny">Checking reminder connection…</div><p class="muted tiny">Brain Dump, tasks and unscheduled Memory Inbox items stay in this browser. When reliable reminders are connected, reminder text is encrypted on this device before cloud sync. The reminder service still processes delivery time, recurrence, timezone and technical push metadata so notifications can arrive.</p></div><div class="card"><h2 style="font-size:1.1rem">Privacy & cloud data</h2><p class="muted tiny">Cuenora's reminder service should not need to read the private words in your reminders. If the local encryption key is unavailable, a due notification still arrives with a generic private-reminder message.</p><div class="row"><a class="btn" href="./privacy.html">How Cuenora handles data</a><button class="btn" id="deleteCloudBtn" type="button">Delete cloud reminder data</button></div></div><div class="card"><h2 style="font-size:1.1rem">Your data</h2><p class="muted tiny">Tasks, reminders, Memory Inbox and settings are stored in this browser on this device.</p><div class="row"><button class="btn" id="exportBtn">Backup data</button><label class="btn" for="importFile">Restore backup</label><input class="hidden" id="importFile" type="file" accept="application/json"><button class="btn" id="clearDone">Clear completed</button></div></div><div class="card"><h2 style="font-size:1.1rem">Help shape Cuenora</h2><p class="muted tiny">Tell us what felt easy or got in the way. Four short answers; no private task text.</p><a class="btn" href="./beta-test.html#feedbackForm">Give feedback</a></div></section>
 </main>
-<script src="./planning-engine.js?v=20260910-1"></script>
-<script src="./capture-dates.js?v=20260910-1"></script>
-<script src="./cuenora-app.js?v=20260910-1"></script>
-<script src="./reminder-guard.js?v=20260910-1"></script>
-<script src="./smart-dump.js?v=20260911-1"></script>
-<script src="./assist.js?v=20260910-1"></script>
-<script src="./voice.js?v=20260910-1"></script>
-<script src="./cloud-config.js?v=20260910-1"></script>
-<script src="./privacy-crypto.js?v=20260910-1"></script>
-<script src="./cloud.js?v=20260910-1"></script>
+<script src="./planning-engine.js"></script>
+<script src="./capture-dates.js"></script>
+<script src="./cuenora-app.js"></script>
+<script src="./reminder-guard.js"></script>
+<script src="./smart-dump.js"></script>
+<script src="./assist.js"></script>
+<script src="./voice.js"></script>
+<script src="./cloud-config.js"></script>
+<script src="./privacy-crypto.js"></script>
+<script src="./cloud.js"></script>
 </body>
 </html>

@@ -1,4 +1,13 @@
-(()=>{const a="cuenora-focus-v1",i=e=>document.querySelector(e),u=(e,t)=>{try{return JSON.parse(localStorage.getItem(e)||"null")||t}catch{return t}},l=(e,t)=>localStorage.setItem(e,JSON.stringify(t)),d=()=>window.CuenoraBeta;function m(){const e=document.createElement("style");e.textContent=`
+(()=>{
+  const FOCUS_KEY='cuenora-focus-v1';
+  const $=s=>document.querySelector(s);
+  const read=(k,f)=>{try{return JSON.parse(localStorage.getItem(k)||'null')||f}catch{return f}};
+  const write=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+  const api=()=>window.CuenoraBeta;
+
+  function addStyles(){
+    const style=document.createElement('style');
+    style.textContent=`
       .cuenora-assist{margin:12px 0;padding:14px;border:1px solid var(--line);border-radius:17px;background:var(--panel2)}
       .cuenora-assist strong{display:block;margin-bottom:4px}.cuenora-assist .row{margin-top:10px}
       .cuenora-assist-status{font-size:.92rem;color:var(--muted)}
@@ -8,4 +17,77 @@
       .cuenora-persistent input{width:24px;height:24px;min-width:24px;margin-top:1px;accent-color:var(--accent)}
       .cuenora-persistent .persistent-copy{display:block;line-height:1.35}
       .cuenora-persistent .persistent-help{display:block;margin-top:5px;font-size:.8rem;color:var(--muted);font-weight:500}
-    `,document.head.appendChild(e)}function f(){const e=d()?.getState?.();if(!e?.tasks)return null;const t=e.tasks.filter(o=>o.status!=="done"),n=t.filter(o=>o.status!=="later"),r=n.length?n:t,s=o=>o==="high"?0:o==="low"?2:1;return[...r].sort((o,p)=>s(o.priority)-s(p.priority)||(o.minutes||10)-(p.minutes||10))[0]||null}function h(){const e=i("#oneTask")?.closest(".card");if(!e||i("#cuenoraFocus"))return;const t=document.createElement("div");t.id="cuenoraFocus",t.className="cuenora-assist",t.innerHTML='<strong>Time Anchor</strong><div class="cuenora-assist-status" id="focusStatus">No countdown. Cuenora can simply check your sense of time.</div><div class="row"><button class="btn" id="focusStart" type="button">Stay with me for 10 min</button><button class="btn hidden" id="focusContinue" type="button">Another 10 min</button><button class="btn hidden" id="focusStop" type="button">End check-in</button></div>',e.appendChild(t),i("#focusStart").onclick=()=>{const n=f();if(!n){i("#focusStatus").textContent="Add or choose a task first. The time anchor follows one thing at a time.";return}const r=Date.now();l(a,{taskId:n.id,title:n.title,startedAt:r,nextAt:r+10*6e4}),c()},i("#focusContinue").onclick=()=>{const n=u(a,null);n&&(n.nextAt=Date.now()+10*6e4,l(a,n),c())},i("#focusStop").onclick=()=>{localStorage.removeItem(a),c()},c(),setInterval(c,3e4)}function c(){const e=i("#focusStatus");if(!e)return;const t=u(a,null),n=i("#focusStart"),r=i("#focusContinue"),s=i("#focusStop");if(!t){e.textContent="No countdown. Cuenora can simply check your sense of time.",n?.classList.remove("hidden"),r?.classList.add("hidden"),s?.classList.add("hidden");return}const o=Math.max(0,Math.floor((Date.now()-t.startedAt)/6e4));n?.classList.add("hidden"),s?.classList.remove("hidden"),Date.now()>=t.nextAt?(e.textContent=`About ${Math.max(10,o)} minutes have passed with \u201C${t.title}\u201D. Still where you want to be?`,r?.classList.remove("hidden")):(e.textContent=`Cuenora is staying with \u201C${t.title}\u201D. No countdown \u2014 the next gentle check-in is in about ${Math.max(1,Math.ceil((t.nextAt-Date.now())/6e4))} min.`,r?.classList.add("hidden"))}function g(){const e=i("#reminderForm");if(!e)return;let t=i("#persistentNudgeBox");if(!t){t=document.createElement("div"),t.id="persistentNudgeBox",t.className="cuenora-persistent",t.innerHTML='<div class="persistent-title">IMPORTANT REMINDER</div><label><input id="persistentNudge" type="checkbox"><span class="persistent-copy">Keep nudging me until I tap Done<span class="persistent-help">If you dismiss it, Cuenora will remind you again every 10 minutes, up to 6 times. Use this for things you really do not want to forget.</span></span></label>';const n=e.querySelector("button.primary")||e.querySelector("button");n?e.insertBefore(t,n):e.appendChild(t)}}function x(){setInterval(()=>{if(u("cuenora-cloud-v1",{}).connected)return;const t=d(),n=t?.getState?.();if(!n?.reminders)return;let r=!1;for(const s of n.reminders){if(s.persistence!=="repeat"||s.status==="done"||!s.lastFired||s._repeatHandled===s.lastFired)continue;const o=Number(s.repeatCount||0)+1;s.repeatCount=o,s._repeatHandled=s.lastFired,o<Number(s.maxRepeats||6)&&(s.when=new Date(Date.now()+Number(s.repeatInterval||10)*6e4).toISOString(),s.lastFired=null,s.status="active"),r=!0}r&&t.setState(n)},5e3)}m(),h(),g(),x()})();
+    `;
+    document.head.appendChild(style);
+  }
+
+  function currentTask(){
+    const s=api()?.getState?.();
+    if(!s?.tasks)return null;
+    const active=s.tasks.filter(t=>t.status!=='done');
+    const usable=active.filter(t=>t.status!=='later');
+    const list=usable.length?usable:active;
+    const rank=p=>p==='high'?0:p==='low'?2:1;
+    return [...list].sort((a,b)=>rank(a.priority)-rank(b.priority)||(a.minutes||10)-(b.minutes||10))[0]||null;
+  }
+
+  function installFocus(){
+    const one=$('#oneTask')?.closest('.card');
+    if(!one||$('#cuenoraFocus'))return;
+    const box=document.createElement('div');
+    box.id='cuenoraFocus';box.className='cuenora-assist';
+    box.innerHTML=`<strong>Time Anchor</strong><div class="cuenora-assist-status" id="focusStatus">No countdown. Cuenora can simply check your sense of time.</div><div class="row"><button class="btn" id="focusStart" type="button">Stay with me for 10 min</button><button class="btn hidden" id="focusContinue" type="button">Another 10 min</button><button class="btn hidden" id="focusStop" type="button">End check-in</button></div>`;
+    one.appendChild(box);
+    $('#focusStart').onclick=()=>{
+      const t=currentTask();
+      if(!t){$('#focusStatus').textContent='Add or choose a task first. The time anchor follows one thing at a time.';return}
+      const now=Date.now();write(FOCUS_KEY,{taskId:t.id,title:t.title,startedAt:now,nextAt:now+10*60000});renderFocus();
+    };
+    $('#focusContinue').onclick=()=>{const f=read(FOCUS_KEY,null);if(!f)return;f.nextAt=Date.now()+10*60000;write(FOCUS_KEY,f);renderFocus()};
+    $('#focusStop').onclick=()=>{localStorage.removeItem(FOCUS_KEY);renderFocus()};
+    renderFocus();
+    setInterval(renderFocus,30000);
+  }
+
+  function renderFocus(){
+    const status=$('#focusStatus');if(!status)return;
+    const f=read(FOCUS_KEY,null),start=$('#focusStart'),cont=$('#focusContinue'),stop=$('#focusStop');
+    if(!f){status.textContent='No countdown. Cuenora can simply check your sense of time.';start?.classList.remove('hidden');cont?.classList.add('hidden');stop?.classList.add('hidden');return}
+    const mins=Math.max(0,Math.floor((Date.now()-f.startedAt)/60000));
+    start?.classList.add('hidden');stop?.classList.remove('hidden');
+    if(Date.now()>=f.nextAt){status.textContent=`About ${Math.max(10,mins)} minutes have passed with “${f.title}”. Still where you want to be?`;cont?.classList.remove('hidden')}
+    else {status.textContent=`Cuenora is staying with “${f.title}”. No countdown — the next gentle check-in is in about ${Math.max(1,Math.ceil((f.nextAt-Date.now())/60000))} min.`;cont?.classList.add('hidden')}
+  }
+
+  function installPersistentReminder(){
+    const form=$('#reminderForm');if(!form)return;
+    let wrap=$('#persistentNudgeBox');
+    if(!wrap){
+      wrap=document.createElement('div');
+      wrap.id='persistentNudgeBox';
+      wrap.className='cuenora-persistent';
+      wrap.innerHTML=`<div class="persistent-title">IMPORTANT REMINDER</div><label><input id="persistentNudge" type="checkbox"><span class="persistent-copy">Keep nudging me until I tap Done<span class="persistent-help">If you dismiss it, Cuenora will remind you again every 10 minutes, up to 6 times. Use this for things you really do not want to forget.</span></span></label>`;
+      const saveButton=form.querySelector('button.primary')||form.querySelector('button');
+      if(saveButton)form.insertBefore(wrap,saveButton);else form.appendChild(wrap);
+    }
+
+  }
+
+  function supportLocalPersistent(){
+    setInterval(()=>{
+      const cloud=read('cuenora-cloud-v1',{});if(cloud.connected)return;
+      const c=api();const s=c?.getState?.();if(!s?.reminders)return;
+      let changed=false;
+      for(const r of s.reminders){
+        if(r.persistence!=='repeat'||r.status==='done'||!r.lastFired)continue;
+        if(r._repeatHandled===r.lastFired)continue;
+        const count=Number(r.repeatCount||0)+1;r.repeatCount=count;r._repeatHandled=r.lastFired;
+        if(count<Number(r.maxRepeats||6)){r.when=new Date(Date.now()+Number(r.repeatInterval||10)*60000).toISOString();r.lastFired=null;r.status='active'}
+        changed=true;
+      }
+      if(changed)c.setState(s);
+    },5000);
+  }
+
+  addStyles();installFocus();installPersistentReminder();supportLocalPersistent();
+})();
