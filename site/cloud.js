@@ -1,4 +1,5 @@
 (()=>{
+  if(window.CuenoraStorageBlocked)return;
   const STATE_KEY='cuenora-beta-v1';
   const CLOUD_KEY='cuenora-cloud-v1';
   const DEVICE_KEY='cuenora-cloud-device-v1';
@@ -9,6 +10,7 @@
   const statusEl=document.getElementById('cloudStatus');
   const noticeEl=document.getElementById('reminderNotice');
   const deleteButton=document.getElementById('deleteCloudBtn');
+  const repairButton=document.getElementById('repairCloudBtn');
   let syncing=false,debounceTimer=null,connecting=false,suppressTracking=false;
   let cloud={connected:false,...readJson(CLOUD_KEY,{})};
   function readJson(key,fallback){try{return JSON.parse(localStorage.getItem(key)||'null')||fallback}catch{return fallback}}
@@ -37,7 +39,20 @@
   function syncFingerprint(r){return JSON.stringify({title:r.title||'',when:r.when||'',anchor:r.anchor||r.when||'',repeat:r.repeat||'none',persistence:r.persistence||'once',repeatInterval:Number(r.repeatInterval||10),maxRepeats:Number(r.maxRepeats||6),status:r.status==='done'?'done':'active'})}
   function reminderMap(){return new Map(localState().reminders.filter(r=>r?.id).map(r=>[r.id,syncFingerprint(r)]))}
   let trackedReminders=reminderMap();
-  function readOutbox(){const q=readJson(OUTBOX_KEY,{});return{upserts:q?.upserts&&typeof q.upserts==='object'?q.upserts:{},deletes:q?.deletes&&typeof q.deletes==='object'?q.deletes:{}}}
+  function readOutbox(){
+    const raw=localStorage.getItem(OUTBOX_KEY);
+    if(raw===null)return{upserts:{},deletes:{}};
+    try{
+      const q=JSON.parse(raw);
+      const validMap=m=>m&&typeof m==='object'&&!Array.isArray(m)&&Object.entries(m).every(([id,token])=>id&&typeof token==='string'&&token.length);
+      if(!q||!validMap(q.upserts)||!validMap(q.deletes)||Object.keys(q.upserts).some(id=>Object.hasOwn(q.deletes,id)))throw new Error('Invalid queue');
+      return q;
+    }catch{
+      // Lost deletion intent cannot safely be reconstructed from remaining reminders.
+      // Preserve the raw queue and local state; do not merge older cloud data.
+      throw new Error('The saved reminder queue is damaged. Cloud sync is paused; local data is kept.');
+    }
+  }
   function writeOutbox(q){if(Object.keys(q.upserts).length||Object.keys(q.deletes).length)writeJson(OUTBOX_KEY,q);else localStorage.removeItem(OUTBOX_KEY)}
   function pendingIds(){const q=readOutbox();return new Set([...Object.keys(q.upserts),...Object.keys(q.deletes)])}
   function deletionToken(){return `${Date.now()}-${Math.random().toString(36).slice(2)}`}
@@ -129,6 +144,7 @@
     try{writeJson(CLOUD_KEY,cloud)}catch{}
     setStatus(`Reminders need reconnecting: ${error.message}`,true);
     if(button)button.textContent='Reconnect reminders';
+    if(repairButton&&error.message.includes('queue is damaged'))repairButton.classList.remove('hidden');
     if(noticeEl)noticeEl.textContent='The reminder connection could not be confirmed. Your saved reminders are still here. Reconnect to try again.';
   }
   async function connect(interactive){
@@ -144,6 +160,7 @@
       let permission=Notification.permission;
       if(permission==='default'&&interactive)permission=await Notification.requestPermission();
       if(permission!=='granted')throw new Error(permission==='denied'?'Notifications are blocked. Allow Cuenora notifications in your device or browser settings, then reconnect.':'Tap Enable reminders and allow notifications to connect.');
+      readOutbox();
       setStatus('Checking reminder connection…');
       if(button)button.textContent='Connecting…';
       const reg=await registerSW();
@@ -173,11 +190,33 @@
   }
   function enable(){return connect(true)}
   function verify(){return connect(false)}
+  async function repairCloudSync(){
+    const raw=localStorage.getItem(OUTBOX_KEY);
+    try{readOutbox();setStatus('The reminder queue does not need repair.');if(repairButton)repairButton.classList.add('hidden');return}catch{}
+    if(!confirm('Repair reminder sync using the reminders saved on this device? This replaces this device’s cloud reminder copies so deleted reminders cannot return.'))return;
+    if(repairButton)repairButton.disabled=true;
+    try{
+      setStatus('Repairing reminder sync…');
+      await api('delete-device-data');
+      localStorage.removeItem(OUTBOX_KEY);
+      cloud={...cloud,connected:false,outboxReady:false};
+      writeJson(CLOUD_KEY,cloud);
+      trackedReminders=new Map();
+      primeOutbox();
+      if(repairButton)repairButton.classList.add('hidden');
+      if(noticeEl)noticeEl.textContent='Cloud reminder copies were reset safely. Reconnecting the reminders saved on this device…';
+      await connect(true);
+    }catch(e){
+      if(raw!==null)localStorage.setItem(OUTBOX_KEY,raw);
+      connectionFailed(e);
+    }finally{if(repairButton)repairButton.disabled=false}
+  }
   async function deleteCloudData(){if(connecting)return;if(!cloud.connected&&!readJson(DEVICE_KEY,null)){setStatus('No connected cloud reminder data on this device.');return}if(!confirm('Delete this device’s cloud reminder data? Local tasks, Brain Dump, memories and reminders will stay on this device.'))return;try{setStatus('Deleting cloud reminder data…');await api('delete-device-data');try{const reg=await navigator.serviceWorker?.ready,sub=await reg?.pushManager?.getSubscription();if(sub)await sub.unsubscribe()}catch{}cloud={connected:false};localStorage.removeItem(CLOUD_KEY);localStorage.removeItem(DEVICE_KEY);localStorage.removeItem(OUTBOX_KEY);trackedReminders=reminderMap();await privacy?.deleteLocalKey?.();setStatus('Cloud reminder data deleted. Local Cuenora data is still on this device.');if(noticeEl)noticeEl.textContent='Cloud reminder data for this device has been deleted. You can reconnect reliable reminders at any time.'}catch(e){setStatus(`Could not delete cloud data: ${e.message}`,true)}}
   async function handleNotificationAction(){const u=new URL(location.href),action=u.searchParams.get('pn_action'),rid=u.searchParams.get('pn_reminder');if(!action||!rid)return;try{const s=localState(),r=s.reminders.find(x=>x.id===rid);if(action==='snooze'){await api('snooze-reminder',{client_id:rid,minutes:5});if(r){r.when=new Date(Date.now()+5*60000).toISOString();r.status='active';r.lastFired=null}}else if(action==='done'){await api('ack-reminder',{client_id:rid});if(r&&r.repeat==='none')r.status='done'}writeJson(STATE_KEY,s);window.CuenoraBeta?.setState(s);if(r?.repeat!=='none')await reconcile()}catch(e){console.warn('Notification action failed',e)}finally{u.searchParams.delete('pn_action');u.searchParams.delete('pn_reminder');u.searchParams.delete('pn_anchor');history.replaceState({},'',u.pathname+u.search+u.hash)}}
   if(button)button.onclick=enable;
+  if(repairButton)repairButton.onclick=repairCloudSync;
   if(deleteButton)deleteButton.onclick=deleteCloudData;
-  window.addEventListener('cuenora-state-saved',()=>{trackLocalMutations();if(!cloud.connected)return;clearTimeout(debounceTimer);debounceTimer=setTimeout(syncAll,450)});
+  window.addEventListener('cuenora-state-saved',()=>{try{trackLocalMutations()}catch(e){connectionFailed(e);return}if(!cloud.connected)return;clearTimeout(debounceTimer);debounceTimer=setTimeout(syncAll,450)});
   if('serviceWorker'in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data?.type!=='cuenora-push-visible')return;const s=localState(),r=s.reminders.find(x=>x.id===e.data.clientReminderId);if(r){r.lastFired=new Date().toISOString();writeJson(STATE_KEY,s);window.CuenoraBeta?.setState(s)}});
   (async()=>{if(!config.backendUrl){setStatus('Local reminders only.');return}if(cloud.connected)await verify();else setStatus(isIOS()&&!standalone()?'Install for reminders':'Enable reminders');await handleNotificationAction()})();
 })();

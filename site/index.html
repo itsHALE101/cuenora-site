@@ -6,11 +6,11 @@
   <meta name="theme-color" content="#58736c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="description" content="Cuenora — ADHD-friendly working-memory reminders, planning and reset support.">
+  <meta name="description" content="Cuenora — a place to capture thoughts, keep them safe and bring them back when you need them.">
   <title>Cuenora — working-memory support</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./cuenora.css">
+  <link rel="stylesheet" href="./cuenora.css?v=17dace696d712262">
 </head>
 <body>
 <header class="top"><div class="wrap"><div class="head"><div class="brand"><span class="mark">C</span><span>Cuenora</span></div><button class="btn" id="notifyBtn">Enable reminders</button></div><div class="nav" id="nav"><button class="btn active" data-v="now">Now</button><button class="btn" data-v="dump">Brain Dump</button><button class="btn" data-v="memory">Memory</button><button class="btn" data-v="plan">Plan</button><button class="btn" data-v="remind">Remind</button><button class="btn" data-v="reset">Reset</button><button class="btn" data-v="settings">Settings</button></div></div></header>
@@ -31,17 +31,18 @@
 
   <section id="reset" class="view"><div class="hero"><div class="eyebrow">START FROM NOW</div><h2>The old plan can go.</h2><p class="lead">Tell Cuenora what capacity exists now. It will protect one realistic next thing instead of making you repair the whole day.</p></div><div class="card"><div class="eyebrow">WHAT FITS FROM HERE?</div><div class="row capacity-row"><button class="btn cap" data-m="5">5 min</button><button class="btn cap" data-m="15">15 min</button><button class="btn cap" data-m="30">30 min</button><button class="btn cap" data-m="60">1 hour</button><button class="btn cap" data-m="180">A few hours</button><button class="btn cap" data-m="0">Done today</button></div><div id="resetResult" class="reset" style="margin-top:16px">Pick your capacity. No catching up required.</div><div id="resetStart" class="notice hidden" style="margin-top:12px"></div></div></section>
 
-  <section id="settings" class="view"><div class="hero"><div class="eyebrow">SENSORY PROFILE</div><h2>Make Cuenora easier to be around.</h2></div><div class="card"><div class="field"><label>Theme</label><select id="theme"><option value="calm">Calm</option><option value="focus">Focus</option><option value="energy">Energy</option><option value="mono">Mono</option><option value="night">Night</option></select></div><div class="field"><label>Text size</label><select id="textSize"><option value="16">Standard</option><option value="18">Large</option><option value="20">Extra large</option></select></div><div class="field"><label><input id="motion" type="checkbox" style="width:auto"> Reduce motion</label></div></div><div class="card"><h2 style="font-size:1.1rem">Cuenora rules</h2><p class="muted tiny">No streak punishment. No overdue shame. No requirement to perfectly maintain a planner. The goal is simple: move from stuck to started.</p></div><div class="card"><h2 style="font-size:1.1rem">Reliable reminders</h2><div id="cloudStatus" class="notice good tiny">Checking reminder connection…</div><p class="muted tiny">Brain Dump, tasks and unscheduled Memory Inbox items stay in this browser. When reliable reminders are connected, reminder text is encrypted on this device before cloud sync. The reminder service still processes delivery time, recurrence, timezone and technical push metadata so notifications can arrive.</p></div><div class="card"><h2 style="font-size:1.1rem">Privacy & cloud data</h2><p class="muted tiny">Cuenora's reminder service should not need to read the private words in your reminders. If the local encryption key is unavailable, a due notification still arrives with a generic private-reminder message.</p><div class="row"><a class="btn" href="./privacy.html">How Cuenora handles data</a><button class="btn" id="deleteCloudBtn" type="button">Delete cloud reminder data</button></div></div><div class="card"><h2 style="font-size:1.1rem">Your data</h2><p class="muted tiny">Tasks, reminders, Memory Inbox and settings are stored in this browser on this device.</p><div class="row"><button class="btn" id="exportBtn">Backup data</button><label class="btn" for="importFile">Restore backup</label><input class="hidden" id="importFile" type="file" accept="application/json"><button class="btn" id="clearDone">Clear completed</button></div></div><div class="card"><h2 style="font-size:1.1rem">Help shape Cuenora</h2><p class="muted tiny">Tell us what felt easy or got in the way. Four short answers; no private task text.</p><a class="btn" href="./beta-test.html#feedbackForm">Give feedback</a></div></section>
+  <section id="settings" class="view"><div class="hero"><div class="eyebrow">SENSORY PROFILE</div><h2>Make Cuenora easier to be around.</h2></div><div class="card"><div class="field"><label>Theme</label><select id="theme"><option value="calm">Calm</option><option value="focus">Focus</option><option value="energy">Energy</option><option value="mono">Mono</option><option value="night">Night</option></select></div><div class="field"><label>Text size</label><select id="textSize"><option value="16">Standard</option><option value="18">Large</option><option value="20">Extra large</option></select></div><div class="field"><label><input id="motion" type="checkbox" style="width:auto"> Reduce motion</label></div></div><div class="card"><h2 style="font-size:1.1rem">Cuenora rules</h2><p class="muted tiny">No streak punishment. No overdue shame. No requirement to perfectly maintain a planner. The goal is simple: move from stuck to started.</p></div><div class="card"><h2 style="font-size:1.1rem">Reliable reminders</h2><div id="cloudStatus" class="notice good tiny">Checking reminder connection…</div><p class="muted tiny">Brain Dump, tasks and unscheduled Memory Inbox items stay in this browser. When reliable reminders are connected, reminder text is encrypted on this device before cloud sync. The reminder service still processes delivery time, recurrence, timezone and technical push metadata so notifications can arrive.</p></div><div class="card"><h2 style="font-size:1.1rem">Privacy & cloud data</h2><p class="muted tiny">Cuenora's reminder service should not need to read the private words in your reminders. If the local encryption key is unavailable, a due notification still arrives with a generic private-reminder message.</p><div class="row"><a class="btn" href="./privacy.html">How Cuenora handles data</a><button class="btn hidden" id="repairCloudBtn" type="button">Repair reminder sync</button><button class="btn" id="deleteCloudBtn" type="button">Delete cloud reminder data</button></div></div><div class="card"><h2 style="font-size:1.1rem">Your data</h2><p class="muted tiny">Tasks, reminders, Memory Inbox and settings are stored in this browser on this device.</p><div class="row"><button class="btn" id="exportBtn">Backup data</button><label class="btn" for="importFile">Restore backup</label><input class="hidden" id="importFile" type="file" accept="application/json"><button class="btn" id="clearDone">Clear completed</button></div></div><div class="card"><h2 style="font-size:1.1rem">Help shape Cuenora</h2><p class="muted tiny">Tell us what felt easy or got in the way. Four short answers; no private task text.</p><a class="btn" href="./beta-test.html#feedbackForm">Give feedback</a></div></section>
 </main>
-<script src="./planning-engine.js"></script>
-<script src="./capture-dates.js"></script>
-<script src="./cuenora-app.js"></script>
-<script src="./reminder-guard.js"></script>
-<script src="./smart-dump.js"></script>
-<script src="./assist.js"></script>
-<script src="./voice.js"></script>
-<script src="./cloud-config.js"></script>
-<script src="./privacy-crypto.js"></script>
-<script src="./cloud.js"></script>
+<script src="./planning-engine.js?v=8e71996fb7bb03eb"></script>
+<script src="./capture-dates.js?v=5bf59cbb3db3c8bb"></script>
+<script src="./cuenora-app.js?v=94aeea17ecc11cb2"></script>
+<script src="./reminder-guard.js?v=c009ca831c9afde0"></script>
+<script src="./smart-dump.js?v=1e2dd84e5798b657"></script>
+<script src="./assist.js?v=7c43f7a8b6f17bf1"></script>
+<script src="./voice.js?v=abd8135a3e7c0f94"></script>
+<script src="./cloud-config.js?v=cc44704d13618cd4"></script>
+<script src="./privacy-crypto.js?v=a9959f079baf065a"></script>
+<script src="./cloud.js?v=a131570c0a1a0e94"></script>
 </body>
 </html>
+

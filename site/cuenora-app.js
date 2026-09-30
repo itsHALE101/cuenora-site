@@ -2,7 +2,26 @@
   const K='cuenora-beta-v1',q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)];
   let state={tasks:[],reminders:[],memories:[],settings:{theme:'calm',textSize:'16',motion:false}};
   let startTaskId=null;
-  try{state={...state,...JSON.parse(localStorage.getItem(K)||'{}')}}catch{}
+  let stored=null;
+  try{
+    stored=localStorage.getItem(K);
+    if(stored!==null)state=restoreShape(JSON.parse(stored));
+  }catch{
+    // Do not let render/save or cloud reconciliation replace unreadable data.
+    window.CuenoraStorageBlocked=true;
+    const panel=document.createElement('section');panel.className='card';panel.id='storageRecovery';panel.setAttribute('role','alert');
+    const title=document.createElement('h1');title.textContent='Your saved thoughts need attention';
+    const message=document.createElement('p');message.textContent='Cuenora could not read your saved data. Nothing has been replaced. Keep this browser’s data while we help recover it.';
+    panel.append(title,message);
+    if(stored!==null){
+      const download=document.createElement('button');download.className='btn primary';download.textContent='Download recovery copy';
+      download.onclick=()=>{const url=URL.createObjectURL(new Blob([stored],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='cuenora-recovery.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+      panel.append(download);
+    }
+    const retry=document.createElement('button');retry.className='btn';retry.textContent='Try opening again';retry.onclick=()=>location.reload();panel.append(retry);
+    document.querySelector('header').style.display='none';document.querySelector('main').replaceChildren(panel);
+    return;
+  }
   function normalize(){state.tasks=state.tasks||[];state.reminders=state.reminders||[];state.memories=state.memories||[];state.settings={theme:'calm',textSize:'16',motion:false,...(state.settings||{})}}
   normalize();
   const save=()=>{localStorage.setItem(K,JSON.stringify(state));window.dispatchEvent(new CustomEvent('cuenora-state-saved',{detail:{key:K}}))};

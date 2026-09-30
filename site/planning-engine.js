@@ -9,6 +9,8 @@
   // A time-shaped token is not enough: require a future action or event.
   const eventWords='(?:dentist|dental|doctor|dr|gp|vet|hospital|clinic|consultant|nurse|physio|optician|appointment|appt|meeting|session|check-up|follow-up|booking)';
   const eventPattern=new RegExp(`^(?:(?:my|our|the)\\s+)?${eventWords}\\b`,'i');
+  // Common event qualifiers are part of the event name, not a separate thought.
+  const qualifiedEventPattern=/^(?:(?:my|our|the)\s+)?(?:college|school|university|uni|work|team|staff|project|course|parent|parents|online|zoom|teams)\s+(?:meeting|appointment|appt|session|check-up|follow-up)\b/i;
   const firstPersonEventPattern=new RegExp(`^(?:i(?:['’]ve| have)\\s+got|i(?:['’]m| am)\\s+(?:due(?:\\s+(?:to(?:\\s+see)?|at))?|seeing|going\\s+to)|got)\\s+(?:(?:a|an|the)\\s+)?${eventWords}\\b`,'i');
   const temporalFirstEventPattern=new RegExp(`^(?:on\\s+)?(?:today|tomorrow|tmr|tonight|next\\s+(?:week|mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)|(?:mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)(?:day)?|\\d{1,2}[/-]\\d{1,2})\\b.{0,32}\\b${eventWords}\\b`,'i');
   const reminderManagementPattern=/^(?:please\s+)?(?:cancel|delete|remove|stop|disable|turn off|snooze|change|edit|move|reschedule)\s+(?:(?:my|the|that)\s+)?(?:reminder|notification|alarm)s?\b/i;
@@ -21,7 +23,7 @@
     const value=clean(text);
     if(pastOrCancelledPattern.test(value)||dateAsTopicPattern.test(value)||eventAsTopicPattern.test(value)||referenceNumberPattern.test(value)||reminderManagementPattern.test(value))return false;
     const action=value.replace(/^(?:i\s+)?(?:need to|have to|want to)\s+/i,'');
-    return actionPattern.test(action)||eventPattern.test(action)||firstPersonEventPattern.test(action)||temporalFirstEventPattern.test(action)||/^(?:(?:please\s+)?remind me|phone|ring|join|put)\b/i.test(action);
+    return actionPattern.test(action)||eventPattern.test(action)||qualifiedEventPattern.test(action)||firstPersonEventPattern.test(action)||temporalFirstEventPattern.test(action)||/^(?:(?:please\s+)?remind me|phone|ring|join|put)\b/i.test(action);
   }
 
   function clean(text){return String(text||'').replace(/\s+/g,' ').trim()}
